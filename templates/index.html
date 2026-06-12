@@ -3,6 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <title>Restaurante - Minicompilador</title>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+    <script>mermaid.initialize({ startOnLoad: false, theme: 'dark' });</script>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -100,9 +102,7 @@
             color: #333;
         }
 
-        .item-card.activo .nombre {
-            color: #c0392b;
-        }
+        .item-card.activo .nombre { color: #c0392b; }
 
         .contador {
             display: flex;
@@ -130,10 +130,7 @@
             transition: all 0.2s;
         }
 
-        .contador button:hover {
-            background: #c0392b;
-            color: white;
-        }
+        .contador button:hover { background: #c0392b; color: white; }
 
         .cantidad-display {
             font-size: 16px;
@@ -157,11 +154,7 @@
             z-index: 100;
         }
 
-        .footer-bar .resumen {
-            font-size: 13px;
-            color: #888;
-            margin-bottom: 2px;
-        }
+        .footer-bar .resumen { font-size: 13px; color: #888; margin-bottom: 2px; }
 
         .footer-bar .instruccion {
             font-family: monospace;
@@ -215,18 +208,13 @@
             border-radius: 16px;
             padding: 30px;
             width: 90%;
-            max-width: 700px;
+            max-width: 750px;
             max-height: 85vh;
             overflow-y: auto;
             color: #eee;
         }
 
-        .modal h2 {
-            color: #f5a623;
-            margin-bottom: 20px;
-            font-size: 18px;
-            text-align: center;
-        }
+        .modal h2 { color: #f5a623; margin-bottom: 20px; font-size: 18px; text-align: center; }
 
         .instruccion-modal {
             background: #0f3460;
@@ -259,7 +247,9 @@
             font-size: 13px;
             color: #eee;
             line-height: 1.8;
-            white-space: pre;
+            white-space: pre-wrap;
+            word-break: break-word;
+            overflow-x: auto;
         }
 
         .json-box {
@@ -407,9 +397,9 @@
 
 <div class="modal-overlay" id="modal-overlay" onclick="cerrarModal(event)">
     <div class="modal">
-        <h2>⚙️ Proceso del Compilador</h2>
+        <h2>Proceso del Compilador</h2>
         <div id="modal-contenido"></div>
-        <button class="btn-cerrar" onclick="cerrar()">✔ Cerrar</button>
+        <button class="btn-cerrar" onclick="cerrar()">Cerrar</button>
     </div>
 </div>
 
@@ -428,13 +418,11 @@
     function actualizar() {
         const mesa = document.getElementById('mesa').value;
         const items = Object.entries(cantidades).filter(([_, v]) => v > 0);
-
         if (items.length === 0) {
             document.getElementById('resumen').textContent = 'Ningún ítem seleccionado';
             document.getElementById('instruccion-footer').textContent = '—';
             return;
         }
-
         const partes = items.map(([codigo, cant]) => `${codigo}X${cant}`);
         const instruccion = `M${mesa}:${partes.join(',')}`;
         document.getElementById('resumen').textContent = `${items.length} ítem(s) seleccionado(s)`;
@@ -448,6 +436,37 @@
         document.querySelectorAll('.cantidad-display').forEach(el => el.textContent = '0');
         document.querySelectorAll('.item-card').forEach(el => el.classList.remove('activo'));
         actualizar();
+    }
+
+    function renderArbol(arbolData) {
+        const contenedor = document.getElementById('arbol-svg');
+        contenedor.innerHTML = '';
+
+        let lineas = ['graph TD'];
+        let contador = 0;
+
+        function buildMermaid(nodo, padreId) {
+            const id = 'N' + contador++;
+            const nombre = nodo.nombre.replace(/"/g, "'");
+            if (padreId === null) {
+                lineas.push(`    ${id}["${nombre}"]`);
+            } else {
+                lineas.push(`    ${padreId} --> ${id}["${nombre}"]`);
+            }
+            if (nodo.hijos && nodo.hijos.length > 0) {
+                nodo.hijos.forEach(hijo => buildMermaid(hijo, id));
+            }
+        }
+
+        buildMermaid(arbolData, null);
+
+        const mermaidStr = lineas.join('\n');
+        const divMermaid = document.createElement('div');
+        divMermaid.className = 'mermaid';
+        divMermaid.textContent = mermaidStr;
+        contenedor.appendChild(divMermaid);
+
+        mermaid.run({ nodes: [divMermaid] });
     }
 
     async function compilar() {
@@ -468,44 +487,59 @@
 
         if (!data.ok) {
             div.innerHTML = `<div class="error-box">❌ ${data.errores.join('<br>')}</div>`;
-        } else {
-            let tokensTexto = '';
-            data.tokens.forEach(([tipo, valor]) => {
-                if (tipo === 'SEPARADOR' && valor === ',') {
-                    tokensTexto += `SEPARADOR: ,\n\n`;
-                } else if (tipo === 'SEPARADOR' && valor === ':') {
-                    tokensTexto += `SEPARADOR: :\n\n`;
-                } else {
-                    tokensTexto += `${tipo}: ${valor}\n`;
-                }
-            });
-
-            const jsonStr = JSON.stringify(data.json, null, 2);
-            const tiposValidos = data.tokens
-                .filter(([tipo, _]) => !['SEPARADOR', 'CANTIDAD'].includes(tipo))
-                .map(([tipo, valor]) => `${tipo}(${valor})`);
-
-            const estructuraSint = tiposValidos.join(' → ');
-            const gramática = `COMANDA  > MESA : ITEMS\nITEMS    > ITEM | ITEM , ITEMS\nITEM     > CODIGO CANTIDAD\nCODIGO   > ENTRADA | COMIDA | BEBIDA | POSTRE\nCANTIDAD > X[0-9]+`;
-
-            div.innerHTML = `
-                <div class="instruccion-modal">${data.instruccion}</div>
-                <div class="fase">
-                    <h3>1. Análisis Léxico</h3>
-                    <div class="texto-box">${tokensTexto}</div>
-                </div>
-                <div class="fase">
-                    <h3>2. Análisis Sintáctico</h3>
-                    <div class="texto-box">Gramática aplicada:\n${gramática}\n\nEstructura detectada:\n${estructuraSint}\n\nEstructura aceptable</div>
-                </div>
-                <div class="fase">
-                    <h3>3. Traducción (JSON)</h3>
-                    <div class="json-box">${jsonStr}</div>
-                </div>
-            `;
+            document.getElementById('modal-overlay').classList.add('activo');
+            return;
         }
 
+        // Tokens
+        let tokensTexto = '';
+        data.tokens.forEach(([tipo, valor]) => {
+            if (tipo === 'SEPARADOR' && valor === ',') {
+                tokensTexto += `SEPARADOR: ,\n\n`;
+            } else if (tipo === 'SEPARADOR' && valor === ':') {
+                tokensTexto += `SEPARADOR: :\n\n`;
+            } else {
+                tokensTexto += `${tipo}: ${valor}\n`;
+            }
+        });
+
+        // Expresiones regulares
+        const regexTexto = data.regex
+            .map(r => `${r.tipo.padEnd(12)} >  ${r.patron}`)
+            .join('\n');
+
+        // Gramática
+        const gramatica = `COMANDA  > MESA : ITEMS\nITEMS    > ITEM | ITEM , ITEMS\nITEM     > CODIGO CANTIDAD\nCODIGO   > ENTRADA | COMIDA | BEBIDA | POSTRE\nCANTIDAD > X[0-9]+`;
+
+        const estructuraSint = data.tokens
+            .filter(([tipo]) => !['SEPARADOR', 'CANTIDAD'].includes(tipo))
+            .map(([tipo, valor]) => `${tipo}(${valor})`)
+            .join(' > ');
+
+        const jsonStr = JSON.stringify(data.json, null, 2);
+
+        div.innerHTML = `
+            <div class="instruccion-modal">${data.instruccion}</div>
+            <div class="fase">
+                <h3>1. Análisis Léxico: Tokens encontrados</h3>
+                <div class="texto-box">${tokensTexto}</div>
+                <h3 style="margin-top:12px; margin-bottom:8px;">Expresiones regulares usadas:</h3>
+                <div class="texto-box">${regexTexto}</div>
+            </div>
+            <div class="fase">
+                <h3>2. Análisis Sintáctico: Gramática y Árbol</h3>
+                <div class="texto-box">Gramática:\n${gramatica}\n\nEstructura detectada:\n${estructuraSint}\n\nEstructura aceptable</div>
+                <h3 style="margin-top:12px; margin-bottom:8px;">Árbol sintáctico:</h3>
+                <div id="arbol-svg" style="background:#0f3460; border-radius:8px; padding:12px; overflow:auto; min-height:100px;"></div>
+            </div>
+            <div class="fase">
+                <h3>3. Traducción (JSON)</h3>
+                <div class="json-box">${jsonStr}</div>
+            </div>
+        `;
+
         document.getElementById('modal-overlay').classList.add('activo');
+        setTimeout(() => renderArbol(data.arbol), 300);
     }
 
     function cerrar() {
