@@ -481,15 +481,25 @@
             });
 
             const jsonStr = JSON.stringify(data.json, null, 2);
+            const tiposValidos = data.tokens
+                .filter(([tipo, _]) => !['SEPARADOR', 'CANTIDAD'].includes(tipo))
+                .map(([tipo, valor]) => `${tipo}(${valor})`);
+
+            const estructuraSint = tiposValidos.join(' → ');
+            const gramática = `COMANDA  > MESA : ITEMS\nITEMS    > ITEM | ITEM , ITEMS\nITEM     > CODIGO CANTIDAD\nCODIGO   > ENTRADA | COMIDA | BEBIDA | POSTRE\nCANTIDAD > X[0-9]+`;
 
             div.innerHTML = `
                 <div class="instruccion-modal">${data.instruccion}</div>
                 <div class="fase">
-                    <h3>1. Análisis Léxico — Tokens encontrados</h3>
+                    <h3>1. Análisis Léxico</h3>
                     <div class="texto-box">${tokensTexto}</div>
                 </div>
                 <div class="fase">
-                    <h3>2. Traducción — JSON generado</h3>
+                    <h3>2. Análisis Sintáctico</h3>
+                    <div class="texto-box">Gramática aplicada:\n${gramática}\n\nEstructura detectada:\n${estructuraSint}\n\nEstructura aceptable</div>
+                </div>
+                <div class="fase">
+                    <h3>3. Traducción (JSON)</h3>
                     <div class="json-box">${jsonStr}</div>
                 </div>
             `;
