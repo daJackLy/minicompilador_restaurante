@@ -94,10 +94,3 @@ def analizar_lexico(instruccion):
             break
 
     return tokens_encontrados
-
-
-if __name__ == "__main__":
-    instruccion = "M5:E01,C01,C02,B01,P01"
-    tokens = analizar_lexico(instruccion)
-    for token in tokens:
-        print(token)
