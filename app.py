@@ -74,6 +74,75 @@ def construir_regex():
             regex_info.append({"tipo": tipo, "patron": patron})
     return regex_info
 
+def construir_agrupadores(tokens):
+    agrupadores_dict = {}
+
+    NOMBRES_TOKEN = {
+        'MESA': 'MESA',
+        'ENTRADA': 'ENTRADA',
+        'COMIDA': 'COMIDA',
+        'BEBIDA': 'BEBIDA',
+        'POSTRE': 'POSTRE',
+        'CANTIDAD': 'CANTIDAD',
+        'SEPARADOR': 'SEPARADOR',
+    }
+
+    for tipo, valor in tokens:
+        if tipo not in NOMBRES_TOKEN:
+            continue
+        if tipo not in agrupadores_dict:
+            agrupadores_dict[tipo] = []
+        if valor not in agrupadores_dict[tipo]:
+            agrupadores_dict[tipo].append(valor)
+
+    orden = ['MESA', 'ENTRADA', 'COMIDA', 'BEBIDA', 'POSTRE', 'CANTIDAD', 'SEPARADOR']
+    agrupadores = []
+    for tipo in orden:
+        if tipo in agrupadores_dict:
+            agrupadores.append({
+                "token": tipo,
+                "lexemas": ", ".join(agrupadores_dict[tipo])
+            })
+
+    return agrupadores
+
+def construir_automata():
+    return {
+        "estados": ["q0", "q1", "q2", "q3", "q4", "q5(error)"],
+        "transiciones": [
+            {"desde": "q0", "hacia": "q1", "etiqueta": "MESA"},
+            {"desde": "q1", "hacia": "q2", "etiqueta": "SEPARADOR"},
+            {"desde": "q2", "hacia": "q3", "etiqueta": "ITEM"},
+            {"desde": "q3", "hacia": "q4", "etiqueta": "CANTIDAD"},
+            {"desde": "q4", "hacia": "q3", "etiqueta": "ITEM"},
+            {"desde": "q0", "hacia": "q5", "etiqueta": "OTRO"},
+            {"desde": "q1", "hacia": "q5", "etiqueta": "OTRO"},
+            {"desde": "q2", "hacia": "q5", "etiqueta": "OTRO"},
+            {"desde": "q3", "hacia": "q5", "etiqueta": "OTRO"},
+        ]
+    }
+    
+def construir_tabla_transiciones():
+    simbolos = ["MESA", "SEPARADOR", "ITEM", "CANTIDAD"]
+    estados = ["q0", "q1", "q2", "q3", "q4", "q5"]
+
+    tabla_valida = {
+        ("q0", "MESA"): "q1",
+        ("q1", "SEPARADOR"): "q2",
+        ("q2", "ITEM"): "q3",
+        ("q3", "CANTIDAD"): "q4",
+        ("q4", "ITEM"): "q3",
+    }
+
+    filas = []
+    for estado in estados:
+        fila = {"estado": estado}
+        for simbolo in simbolos:
+            fila[simbolo] = tabla_valida.get((estado, simbolo), "q5")
+        filas.append(fila)
+
+    return {"simbolos": simbolos, "filas": filas}
+    
 def respuesta(data):
     return app.response_class(
         response=flask_json.dumps(data, sort_keys=False, ensure_ascii=False),
@@ -103,6 +172,9 @@ def compilar():
         "instruccion": instruccion,
         "tokens": tokens,
         "regex": regex,
+        "agrupadores": construir_agrupadores(tokens),
+        "automata": construir_automata(),
+        "tabla_transiciones": construir_tabla_transiciones(),
         "arbol": arbol,
         "json": resultado
     })

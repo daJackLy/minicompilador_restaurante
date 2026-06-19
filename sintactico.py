@@ -30,7 +30,7 @@ def analizar_sintactico(instruccion):
 
         if i < len(tipos):
             if tipos[i] == 'SEPARADOR':
-                i += 1  # saltar la coma
+                i += 1 
             elif tipos[i] in ITEMS_VALIDOS:
                 errores.append(f"ERROR: Falta ',' entre ítems.")
             else:

@@ -24,7 +24,7 @@ def traducir(instruccion):
 
             cantidad = 1
             if i + 1 < len(tokens) and tokens[i+1][0] == 'CANTIDAD':
-                cantidad = int(tokens[i+1][1][1:])  # X3 → 3
+                cantidad = int(tokens[i+1][1][1:])  # X3 > 3
                 i += 1
 
             item = {"nombre": nombre, "cantidad": cantidad}

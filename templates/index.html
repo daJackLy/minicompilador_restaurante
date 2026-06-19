@@ -286,6 +286,57 @@
         }
 
         .btn-cerrar:hover { background: #e09512; }
+
+        .tabla-agrupadores {
+            width: 100%;
+            border-collapse: collapse;
+            font-family: monospace;
+            font-size: 12px;
+        }
+
+        .tabla-agrupadores th {
+            background: #16213e;
+            color: #f5a623;
+            text-align: left;
+            padding: 8px 10px;
+            border: 1px solid #2a3a5a;
+        }
+
+        .tabla-agrupadores td {
+            padding: 8px 10px;
+            border: 1px solid #2a3a5a;
+            color: #eee;
+        }
+
+        .tabla-agrupadores tr:nth-child(even) {
+            background: #16213e55;
+        }
+
+        .tabla-transiciones {
+            width: 100%;
+            border-collapse: collapse;
+            font-family: monospace;
+            font-size: 12px;
+        }
+
+        .tabla-transiciones th, .tabla-transiciones td {
+            padding: 8px 10px;
+            border: 1px solid #2a3a5a;
+            text-align: center;
+        }
+
+        .tabla-transiciones th {
+            background: #16213e;
+            color: #f5a623;
+        }
+
+        .tabla-transiciones td {
+            color: #eee;
+        }
+
+        .tabla-transiciones td.error {
+            color: #e74c3c;
+        }
     </style>
 </head>
 <body>
@@ -469,6 +520,29 @@
         mermaid.run({ nodes: [divMermaid] });
     }
 
+
+    function renderAutomata(automataData) {
+        const contenedor = document.getElementById('automata-svg');
+        contenedor.innerHTML = '';
+
+        let lineas = ['stateDiagram-v2'];
+        lineas.push('    [*] --> q0');
+
+        automataData.transiciones.forEach((t) => {
+            lineas.push(`    ${t.desde} --> ${t.hacia} : ${t.etiqueta}`);
+        });
+
+        lineas.push('    q4 --> [*]');
+
+        const mermaidStr = lineas.join('\n');
+        const divMermaid = document.createElement('div');
+        divMermaid.className = 'mermaid';
+        divMermaid.textContent = mermaidStr;
+        contenedor.appendChild(divMermaid);
+
+        mermaid.run({ nodes: [divMermaid] });
+    }
+
     async function compilar() {
         const instruccion = document.getElementById('instruccion-footer').textContent;
         if (instruccion === '—') {
@@ -517,14 +591,39 @@
             .join(' > ');
 
         const jsonStr = JSON.stringify(data.json, null, 2);
-
+        
+        const tablaAgrupadores = `
+            <table class="tabla-agrupadores">
+                <tr><th>Token (Agrupador)</th><th>Lexemas</th></tr>
+                ${data.agrupadores.map(a => `<tr><td>${a.token}</td><td>${a.lexemas}</td></tr>`).join('')}
+            </table>
+        `;
         div.innerHTML = `
             <div class="instruccion-modal">${data.instruccion}</div>
             <div class="fase">
-                <h3>1. Análisis Léxico: Tokens encontrados</h3>
-                <div class="texto-box">${tokensTexto}</div>
+                <h3>1. Análisis Léxico</h3>
+                ${tablaAgrupadores}
                 <h3 style="margin-top:12px; margin-bottom:8px;">Expresiones regulares usadas:</h3>
                 <div class="texto-box">${regexTexto}</div>
+                <h3 style="margin-top:12px; margin-bottom:8px;">Tokens encontrados en esta instrucción:</h3>
+                <div class="texto-box">${tokensTexto}</div>
+                <h3 style="margin-top:12px; margin-bottom:8px;">Autómata Finito Determinista (AFD):</h3>
+                <div id="automata-svg" style="background:#0f3460; border-radius:8px; padding:12px; overflow:auto; min-height:100px;"></div>
+                <h3 style="margin-top:12px; margin-bottom:8px;">Tabla de Transiciones:</h3>
+                <table class="tabla-transiciones">
+                    <tr>
+                        <th>Estado</th>
+                        ${data.tabla_transiciones.simbolos.map(s => `<th>${s}</th>`).join('')}
+                    </tr>
+                    ${data.tabla_transiciones.filas.map(fila => `
+                        <tr>
+                            <td><strong>${fila.estado}</strong></td>
+                            ${data.tabla_transiciones.simbolos.map(s =>
+                                `<td class="${fila[s] === 'q5' ? 'error' : ''}">${fila[s]}</td>`
+                            ).join('')}
+                        </tr>
+                    `).join('')}
+                </table>
             </div>
             <div class="fase">
                 <h3>2. Análisis Sintáctico: Gramática y Árbol</h3>
@@ -539,7 +638,10 @@
         `;
 
         document.getElementById('modal-overlay').classList.add('activo');
-        setTimeout(() => renderArbol(data.arbol), 300);
+        setTimeout(() => {
+            renderArbol(data.arbol);
+            renderAutomata(data.automata);
+        }, 300);
     }
 
     function cerrar() {
