@@ -337,6 +337,47 @@
         .tabla-transiciones td.error {
             color: #e74c3c;
         }
+
+        .token-automata-block {
+            background: #16213e;
+            border-radius: 8px;
+            padding: 14px;
+            margin-bottom: 14px;
+        }
+
+        .token-automata-block h4 {
+            color: #f5a623;
+            font-size: 13px;
+            margin-bottom: 10px;
+        }
+
+        .token-automata-block code {
+            background: #0f3460;
+            padding: 2px 6px;
+            border-radius: 4px;
+            color: #a8ff78;
+        }
+
+        .afnd-afd-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+
+        .afnd-afd-label {
+            font-size: 11px;
+            color: #aaa;
+            text-transform: uppercase;
+            margin-bottom: 4px;
+        }
+
+        .automata-mini {
+            background: #0f3460;
+            border-radius: 6px;
+            padding: 8px;
+            overflow: auto;
+            min-height: 80px;
+        }
     </style>
 </head>
 <body>
@@ -543,6 +584,87 @@
         mermaid.run({ nodes: [divMermaid] });
     }
 
+    async function renderAutomataSimpleAsync(contenedorId, estados, transiciones, estadoAceptacion) {
+        const contenedor = document.getElementById(contenedorId);
+        if (!contenedor) return;
+        contenedor.innerHTML = '';
+
+        let lineas = ['stateDiagram-v2'];
+        lineas.push('    [*] --> q0');
+
+        transiciones.forEach((t) => {
+            let etiqueta = String(t.etiqueta)
+                .replace(/[()]/g, '')
+                //.replace(/ε/g, 'epsilon')
+                .replace(/:/g, 'DOSPUNTOS')
+                .replace(/,/g, 'COMA')
+                .trim();
+            if (etiqueta === '') etiqueta = 'simbolo';
+            lineas.push(`    ${t.desde} --> ${t.hacia} : ${etiqueta}`);
+        });
+
+        if (estadoAceptacion) {
+            lineas.push(`    ${estadoAceptacion} --> [*]`);
+        } else {
+            const ultimo = estados[estados.length - 1];
+            lineas.push(`    ${ultimo} --> [*]`);
+        }
+
+        const mermaidStr = lineas.join('\n');
+        const idUnico = 'mermaid-' + contenedorId + '-' + Math.random().toString(36).slice(2);
+
+        try {
+            const { svg } = await mermaid.render(idUnico, mermaidStr);
+            contenedor.innerHTML = svg;
+        } catch (e) {
+            contenedor.innerHTML = `<p style="color:#e74c3c; font-size:11px;">Error al renderizar</p>`;
+            console.error('Error mermaid:', e, mermaidStr);
+        }
+    }
+
+    function renderTodosLosAutomatas(automatasTokens) {
+        let html = '';
+        let idCounter = 0;
+        const idsAfnd = [];
+        const idsAfd = [];
+
+        Object.entries(automatasTokens).forEach(([token, data]) => {
+            const idAfnd = `afnd-${idCounter}`;
+            const idAfd = `afd-${idCounter}`;
+            idCounter++;
+            idsAfnd.push({ id: idAfnd, estados: data.afnd.estados, transiciones: data.afnd.transiciones, aceptacion: null });
+            idsAfd.push({ id: idAfd, estados: data.afd.estados, transiciones: data.afd.transiciones, aceptacion: data.afd.estado_aceptacion });
+
+            html += `
+                <div class="token-automata-block">
+                    <h4>Token: ${token} &nbsp;|&nbsp; Expresión regular: <code>${data.regex}</code></h4>
+                    <div class="afnd-afd-grid">
+                        <div>
+                            <p class="afnd-afd-label">AFND</p>
+                            <div id="${idAfnd}" class="automata-mini"></div>
+                        </div>
+                        <div>
+                            <p class="afnd-afd-label">AFD</p>
+                            <div id="${idAfd}" class="automata-mini"></div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        });
+
+        document.getElementById('automatas-tokens-contenedor').innerHTML = html;
+
+        async function renderSecuencial(lista) {
+                for (const item of lista) {
+                    await renderAutomataSimpleAsync(item.id, item.estados, item.transiciones, item.aceptacion);
+                }
+            }
+
+        setTimeout(() => {
+            renderSecuencial([...idsAfnd, ...idsAfd]);
+        }, 100);
+    }
+
     async function compilar() {
         const instruccion = document.getElementById('instruccion-footer').textContent;
         if (instruccion === '—') {
@@ -565,7 +687,7 @@
             return;
         }
 
-        // Tokens
+        //Tokens
         let tokensTexto = '';
         data.tokens.forEach(([tipo, valor]) => {
             if (tipo === 'SEPARADOR' && valor === ',') {
@@ -577,12 +699,12 @@
             }
         });
 
-        // Expresiones regulares
+        //Expresiones regulares
         const regexTexto = data.regex
             .map(r => `${r.tipo.padEnd(12)} >  ${r.patron}`)
             .join('\n');
 
-        // Gramática
+        //Gramática
         const gramatica = `COMANDA  > MESA : ITEMS\nITEMS    > ITEM | ITEM , ITEMS\nITEM     > CODIGO CANTIDAD\nCODIGO   > ENTRADA | COMIDA | BEBIDA | POSTRE\nCANTIDAD > X[0-9]+`;
 
         const estructuraSint = data.tokens
@@ -607,6 +729,8 @@
                 <div class="texto-box">${regexTexto}</div>
                 <h3 style="margin-top:12px; margin-bottom:8px;">Tokens encontrados en esta instrucción:</h3>
                 <div class="texto-box">${tokensTexto}</div>
+                <h3 style="margin-top:12px; margin-bottom:8px;">Autómatas por cada Expresión Regular (AFND y AFD):</h3>
+                <div id="automatas-tokens-contenedor"></div>
                 <h3 style="margin-top:12px; margin-bottom:8px;">Autómata Finito Determinista (AFD):</h3>
                 <div id="automata-svg" style="background:#0f3460; border-radius:8px; padding:12px; overflow:auto; min-height:100px;"></div>
                 <h3 style="margin-top:12px; margin-bottom:8px;">Tabla de Transiciones:</h3>
@@ -641,6 +765,7 @@
         setTimeout(() => {
             renderArbol(data.arbol);
             renderAutomata(data.automata);
+            renderTodosLosAutomatas(data.automatas_tokens);
         }, 300);
     }
 

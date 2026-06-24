@@ -142,6 +142,68 @@ def construir_tabla_transiciones():
         filas.append(fila)
 
     return {"simbolos": simbolos, "filas": filas}
+
+def construir_automatas_por_token():
+    #TOKENS
+    tokens_letra_digito = {
+        'MESA':     'M',
+        'ENTRADA':  'E',
+        'COMIDA':   'C',
+        'BEBIDA':   'B',
+        'POSTRE':   'P',
+        'CANTIDAD': 'X',
+    }
+
+    resultado = {}
+
+    for token, letra in tokens_letra_digito.items():
+        resultado[token] = {
+            "regex": f"{letra}\\d+",
+            "afnd": {
+                "descripcion": "Autómata No Determinista (construcción directa desde la regex)",
+                "estados": ["q0", "q1", "q2", "qf"],
+                "transiciones": [
+                    {"desde": "q0", "hacia": "q1", "etiqueta": letra},
+                    {"desde": "q1", "hacia": "q2", "etiqueta": "dígito"},
+                    {"desde": "q2", "hacia": "q2", "etiqueta": "dígito"},
+                    {"desde": "q2", "hacia": "qf", "etiqueta": "ε"},
+                ]
+            },
+            "afd": {
+                "descripcion": "Autómata Determinista (equivalente simplificado)",
+                "estados": ["q0", "q1", "q2"],
+                "transiciones": [
+                    {"desde": "q0", "hacia": "q1", "etiqueta": letra},
+                    {"desde": "q1", "hacia": "q2", "etiqueta": "0-9"},
+                    {"desde": "q2", "hacia": "q2", "etiqueta": "0-9"},
+                ],
+                "estado_aceptacion": "q2"
+            }
+        }
+
+    #SEPARADOR
+    resultado['SEPARADOR'] = {
+        "regex": "[:,]",
+        "afnd": {
+            "descripcion": "Autómata No Determinista (construcción directa desde la regex)",
+            "estados": ["q0", "q1", "qf"],
+            "transiciones": [
+                {"desde": "q0", "hacia": "q1", "etiqueta": ":"},
+                {"desde": "q0", "hacia": "q1", "etiqueta": ","},
+                {"desde": "q1", "hacia": "qf", "etiqueta": "ε"},
+            ]
+        },
+        "afd": {
+            "descripcion": "Autómata Determinista (equivalente simplificado)",
+            "estados": ["q0", "q1"],
+            "transiciones": [
+                {"desde": "q0", "hacia": "q1", "etiqueta": ": o ,"},
+            ],
+            "estado_aceptacion": "q1"
+        }
+    }
+
+    return resultado
     
 def respuesta(data):
     return app.response_class(
@@ -176,6 +238,7 @@ def compilar():
         "automata": construir_automata(),
         "tabla_transiciones": construir_tabla_transiciones(),
         "arbol": arbol,
+        "automatas_tokens": construir_automatas_por_token(),
         "json": resultado
     })
 
